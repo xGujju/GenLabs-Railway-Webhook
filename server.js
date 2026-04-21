@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import axios from 'axios';
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 const CHANNEL_SECRET = process.env.CHANNEL_SECRET;
 const CHANNEL_ACCESS_TOKEN = process.env.CHANNEL_ACCESS_TOKEN;
 
@@ -76,6 +76,6 @@ app.post('/webhook', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`LINE webhook server listening on port ${PORT}`);
 });
