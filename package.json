@@ -5,11 +5,17 @@
   "description": "LINE Messaging API webhook server",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
+    "start": "node src/cli/webhook.js",
+    "dev": "node src/cli/webhook.js",
+    "worker:once": "node src/cli/worker-once.js",
+    "worker:loop": "node src/cli/worker-loop.js",
+    "test": "node --test"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "axios": "^1.6.0"
+    "axios": "^1.6.0",
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "supertest": "^7.1.1"
   }
 }
