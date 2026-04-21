@@ -8,6 +8,14 @@ function joinParsedText(data) {
     .trim();
 }
 
+function extractGoogleVisionText(data) {
+  return (
+    data?.responses?.[0]?.fullTextAnnotation?.text ||
+    data?.responses?.[0]?.textAnnotations?.[0]?.description ||
+    ''
+  ).trim();
+}
+
 function createMockOcrClient(mockText) {
   return {
     async extractText() {
@@ -45,9 +53,40 @@ function createOcrSpaceClient({ apiKey, httpClient = axios }) {
   };
 }
 
+function createGoogleCloudVisionClient({ apiKey, httpClient = axios }) {
+  return {
+    async extractText({ filePath }) {
+      const fileBuffer = await fs.readFile(filePath);
+      const content = fileBuffer.toString('base64');
+      const response = await httpClient.post(
+        `https://vision.googleapis.com/v1/images:annotate?key=${encodeURIComponent(apiKey)}`,
+        {
+          requests: [
+            {
+              image: { content },
+              features: [{ type: 'DOCUMENT_TEXT_DETECTION' }]
+            }
+          ]
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      return extractGoogleVisionText(response.data);
+    }
+  };
+}
+
 export function createOcrClient({ provider = 'mock', apiKey = '', mockText = '', httpClient = axios }) {
   if (provider === 'ocr_space') {
     return createOcrSpaceClient({ apiKey, httpClient });
+  }
+
+  if (provider === 'google_cloud_vision') {
+    return createGoogleCloudVisionClient({ apiKey, httpClient });
   }
 
   return createMockOcrClient(mockText);
