@@ -7,6 +7,7 @@
   "scripts": {
     "start": "node src/cli/webhook.js",
     "dev": "node src/cli/webhook.js",
+    "start:all": "./run.sh",
     "worker:once": "node src/cli/worker-once.js",
     "worker:loop": "node src/cli/worker-loop.js",
     "test": "node --test"
