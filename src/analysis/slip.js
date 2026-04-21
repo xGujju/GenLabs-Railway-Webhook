@@ -3,27 +3,48 @@ function normalizeText(text) {
 }
 
 function extractAmount(text) {
-  const match = text.match(/amount\s*([0-9,]+(?:\.[0-9]{2})?)\s*(thb|baht)?/i);
-  if (!match) {
-    return { amount: null, currency: null };
+  const patterns = [
+    /amount\s*[:\-]?\s*([0-9,]+(?:\.[0-9]{2})?)\s*(thb|baht)?/i,
+    /(?:จำนวนเงิน|ยอดเงิน|เงินโอน|บาท)\s*[:\-]?\s*([0-9,]+(?:\.[0-9]{2})?)/i,
+    /([0-9,]+(?:\.[0-9]{2})?)\s*(thb|baht|บาท)/i
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match) {
+      return {
+        amount: match[1].replace(/,/g, ''),
+        currency: 'THB'
+      };
+    }
   }
 
-  return {
-    amount: match[1].replace(/,/g, ''),
-    currency: 'THB'
-  };
+  return { amount: null, currency: null };
 }
 
 function extractReferenceId(text) {
-  const match = text.match(/reference\s*([0-9]{6,})/i);
-  return match ? match[1] : null;
+  const patterns = [
+    /reference\s*[:\-]?\s*([0-9]{6,})/i,
+    /(?:เลขอ้างอิง|รหัสอ้างอิง|เลขที่รายการ)\s*[:\-]?\s*([0-9]{6,})/i
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match) {
+      return match[1];
+    }
+  }
+
+  return null;
 }
 
 function extractBankHint(text) {
-  if (/scb|siam commercial/i.test(text)) return 'SCB';
-  if (/kbank|kasikorn/i.test(text)) return 'KBANK';
-  if (/bangkok bank|bbl/i.test(text)) return 'BBL';
-  if (/krungsri|bay/i.test(text)) return 'BAY';
+  if (/scb|siam commercial|ไทยพาณิชย์/i.test(text)) return 'SCB';
+  if (/kbank|kasikorn|k plus|กสิกร/i.test(text)) return 'KBANK';
+  if (/bangkok bank|bbl|กรุงเทพ/i.test(text)) return 'BBL';
+  if (/krungsri|bay|กรุงศรี/i.test(text)) return 'BAY';
+  if (/krungthai|ktb|กรุงไทย/i.test(text)) return 'KTB';
+  if (/ttb|ทหารไทยธนชาต/i.test(text)) return 'TTB';
   return null;
 }
 
@@ -32,9 +53,15 @@ export function analyzeSlipText(rawText) {
   const { amount, currency } = extractAmount(text);
   const referenceId = extractReferenceId(text);
   const bankHint = extractBankHint(text);
-  const hasQr = /\bqr\b|qr payment/i.test(text);
+  const hasQr = /\bqr\b|qr payment|พร้อมเพย์|promptpay/i.test(text);
+  const hasTransferKeyword = /transfer successful|transaction|slip|โอนเงินสำเร็จ|ทำรายการสำเร็จ|สำเร็จ|รายการ/i.test(text);
   const isSlipLike = Boolean(
-    text && (amount || referenceId || /transfer successful|transaction|slip/i.test(text))
+    text && (
+      referenceId ||
+      hasTransferKeyword ||
+      (amount && bankHint) ||
+      (amount && hasQr)
+    )
   );
 
   return {
