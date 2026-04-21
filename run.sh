@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+export PORT=5000
+
 npm run worker:loop &
 WORKER_PID=$!
 
