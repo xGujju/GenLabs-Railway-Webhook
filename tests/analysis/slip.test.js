@@ -1,7 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { analyzeSlipText, buildSlipSummary } from '../../src/analysis/slip.js';
+import {
+  analyzeSlipText,
+  buildSlipSummary,
+  extractSlipEvidence,
+  scoreSlipEvidence
+} from '../../src/analysis/slip.js';
 
 test('analyzeSlipText extracts slip signals from OCR text', () => {
   const result = analyzeSlipText(`
@@ -52,6 +57,66 @@ test('analyzeSlipText treats bank plus amount as slip-like even without english 
   assert.equal(result.amount, '499.00');
   assert.equal(result.currency, 'THB');
   assert.equal(result.bankHint, 'KBANK');
+});
+
+test('analyzeSlipText detects structured SCB top-up flow without relying on transfer keyword', () => {
+  const result = analyzeSlipText(`
+    SCB
+    Successful top up
+    12 Apr 2026 - 21:13
+    Ref ID: 2026041263h9o0OZbkAftcYUkH
+    FROM MR. SWAYAM SANJAY SHAH
+    TO PromptPay Topup
+    AMOUNT 1,542.00
+    verify the top up status
+  `);
+
+  assert.equal(result.isSlipLike, true);
+  assert.equal(result.amount, '1542.00');
+  assert.equal(result.currency, 'THB');
+  assert.equal(result.referenceId, '2026041263h9o0OZbkAftcYUkH');
+  assert.equal(result.bankHint, 'SCB');
+  assert.equal(result.hasQr, true);
+});
+
+test('analyzeSlipText detects structured KBank payment flow with transaction id and fee', () => {
+  const result = analyzeSlipText(`
+    Payment Completed
+    19 Jan 26 4:07 AM
+    K+
+    MR. SWAYAM S
+    KBank
+    Meta Ads (KGP)
+    Transaction ID: 016019040712CPM12799
+    Amount: 5,000.00 Baht
+    Fee: 0.00 Baht
+    Scan for Verify Slip
+  `);
+
+  assert.equal(result.isSlipLike, true);
+  assert.equal(result.amount, '5000.00');
+  assert.equal(result.currency, 'THB');
+  assert.equal(result.referenceId, '016019040712CPM12799');
+  assert.equal(result.bankHint, 'KBANK');
+  assert.equal(result.hasQr, true);
+});
+
+test('extractSlipEvidence and scoreSlipEvidence capture multi-signal document structure', () => {
+  const evidence = extractSlipEvidence(`
+    Payment Completed
+    KBank
+    Transaction ID: 016019040712CPM12799
+    Amount: 5,000.00 Baht
+    Fee: 0.00 Baht
+    Scan for Verify Slip
+  `);
+  const score = scoreSlipEvidence(evidence);
+
+  assert.equal(evidence.hasStatusSignal, true);
+  assert.equal(evidence.hasReferenceSignal, true);
+  assert.equal(evidence.hasMonetarySignal, true);
+  assert.equal(evidence.hasVerificationSignal, true);
+  assert.ok(score >= 6);
 });
 
 test('buildSlipSummary returns a compact operator-facing summary', () => {
