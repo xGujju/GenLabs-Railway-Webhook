@@ -22,3 +22,8 @@ test('createRuntimeConfig trims tokens and applies code defaults', () => {
   assert.equal(config.ocr.mockText, 'hello world');
   assert.equal(config.workerPollIntervalMs, 5000);
 });
+
+test('createRuntimeConfig defaults to port 5000 when PORT is not set', () => {
+  const config = createRuntimeConfig({});
+  assert.equal(config.port, 5000);
+});

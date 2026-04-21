@@ -18,7 +18,7 @@ export function createRuntimeConfig(env = process.env) {
   );
 
   return {
-    port: toInt(env.PORT, 3000),
+    port: toInt(env.PORT, 5000),
     channelSecret: trim(env.LINE_CHANNEL_SECRET),
     channelAccessToken: trim(env.LINE_CHANNEL_ACCESS_TOKEN),
     storeDir: 'var/line_webhooks',
