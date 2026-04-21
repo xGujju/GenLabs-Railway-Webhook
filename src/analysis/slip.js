@@ -178,27 +178,33 @@ export function buildSlipSummary(analysis) {
     return 'No clear slip detected.';
   }
 
-  const parts = ['Slip detected'];
+  const lines = ['✅ Slip detected'];
 
   if (analysis.status) {
-    parts.push(`Status: ${analysis.status}`);
+    lines.push(`Status: ${analysis.status}`);
   }
 
   if (analysis.amount && analysis.currency) {
-    parts.push(`Amount: ${analysis.amount} ${analysis.currency}`);
+    lines.push(`Amount: ${analysis.amount} ${analysis.currency}`);
+  }
+
+  if (analysis.fee) {
+    lines.push(`Fee: ${analysis.fee} ${analysis.currency || 'THB'}`);
+  }
+
+  if (analysis.dateTime) {
+    lines.push(`Date: ${analysis.dateTime}`);
   }
 
   if (analysis.referenceId) {
-    parts.push(`Ref: ${analysis.referenceId}`);
+    lines.push(`Ref: ${analysis.referenceId}`);
   }
 
   if (analysis.bankHint) {
-    parts.push(`Bank: ${analysis.bankHint}`);
+    lines.push(`Bank: ${analysis.bankHint}`);
   }
 
-  if (analysis.hasQr) {
-    parts.push('QR found');
-  }
+  lines.push(`QR: ${analysis.hasQr ? 'Found' : 'Not found'}`);
 
-  return parts.join(' | ');
+  return lines.join('\n');
 }

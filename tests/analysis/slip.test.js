@@ -119,18 +119,26 @@ test('extractSlipEvidence and scoreSlipEvidence capture multi-signal document st
   assert.ok(score >= 6);
 });
 
-test('buildSlipSummary returns a compact operator-facing summary', () => {
+test('buildSlipSummary returns a clean multiline operator-facing summary', () => {
   const summary = buildSlipSummary({
     isSlipLike: true,
-    amount: '1250.00',
+    status: 'Payment Completed',
+    amount: '5000.00',
     currency: 'THB',
-    referenceId: '123456789012',
-    bankHint: 'SCB',
+    fee: '0.00',
+    dateTime: '19 Jan 26 4:07 AM',
+    referenceId: '016019040712CPM12799',
+    bankHint: 'KBANK',
     hasQr: true
   });
 
-  assert.match(summary, /Slip detected/);
-  assert.match(summary, /1250.00 THB/);
-  assert.match(summary, /Ref: 123456789012/);
-  assert.match(summary, /Bank: SCB/);
+  assert.match(summary, /Slip detected/i);
+  assert.match(summary, /Status: Payment Completed/);
+  assert.match(summary, /Amount: 5000.00 THB/);
+  assert.match(summary, /Fee: 0.00 THB/);
+  assert.match(summary, /Date: 19 Jan 26 4:07 AM/);
+  assert.match(summary, /Ref: 016019040712CPM12799/);
+  assert.match(summary, /Bank: KBANK/);
+  assert.match(summary, /QR: Found/);
+  assert.match(summary, /\n/);
 });
