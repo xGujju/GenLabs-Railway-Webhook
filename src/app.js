@@ -18,7 +18,7 @@ export function createApp({ channelSecret, channelAccessToken, storeDir }) {
     res.status(200).send('LINE webhook running');
   });
 
-  app.post('/webhook', async (req, res) => {
+  async function handleLineWebhook(req, res) {
     const signature = req.headers['x-line-signature'];
     const rawBody = req.rawBody || '';
 
@@ -28,8 +28,11 @@ export function createApp({ channelSecret, channelAccessToken, storeDir }) {
 
     await persistWebhookPayload(storeDir, req.body);
 
-    res.status(200).send('OK');
-  });
+    return res.status(200).send('OK');
+  }
+
+  app.post('/webhook', handleLineWebhook);
+  app.post('/webhooks/line', handleLineWebhook);
 
   return app;
 }
