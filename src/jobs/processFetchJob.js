@@ -12,6 +12,17 @@ async function writeJson(filePath, data) {
   await fs.writeFile(filePath, `${JSON.stringify(data, null, 2)}\n`, 'utf8');
 }
 
+function previewText(text, maxLength = 240) {
+  return String(text || '').replace(/\s+/g, ' ').trim().slice(0, maxLength);
+}
+
+function getLogger(logger = console) {
+  return {
+    info: typeof logger.info === 'function' ? logger.info.bind(logger) : () => {},
+    error: typeof logger.error === 'function' ? logger.error.bind(logger) : () => {}
+  };
+}
+
 function extensionForMimeType(mimeType) {
   if (mimeType === 'image/jpeg') return '.jpg';
   if (mimeType === 'image/png') return '.png';
@@ -34,8 +45,16 @@ async function markJobFailure(jobPath, job, error) {
   await writeJson(jobPath, updatedJob);
 }
 
-export async function processFetchJob(jobPath, { storeDir, lineClient, ocrClient }) {
+export async function processFetchJob(jobPath, { storeDir, lineClient, ocrClient, logger }) {
+  const log = getLogger(logger);
   const job = JSON.parse(await fs.readFile(jobPath, 'utf8'));
+
+  log.info('fetch_job_started', {
+    messageId: job.messageId,
+    jobPath,
+    messageType: job.messageType,
+    sourceType: job.source?.type || null
+  });
 
   try {
     const fetched = await lineClient.fetchMessageContent(job.messageId);
@@ -45,10 +64,22 @@ export async function processFetchJob(jobPath, { storeDir, lineClient, ocrClient
     await ensureDir(path.dirname(mediaPath));
     await fs.writeFile(mediaPath, fetched.buffer);
 
+    log.info('line_content_fetched', {
+      messageId: job.messageId,
+      contentType: fetched.contentType,
+      bytes: fetched.buffer.length,
+      mediaPath
+    });
+
     const extractedText = await ocrClient.extractText({
       messageId: job.messageId,
       filePath: mediaPath,
       mimeType: fetched.contentType
+    });
+
+    log.info('ocr_completed', {
+      messageId: job.messageId,
+      extractedTextPreview: previewText(extractedText)
     });
 
     const analysis = analyzeSlipText(extractedText);
@@ -60,6 +91,18 @@ export async function processFetchJob(jobPath, { storeDir, lineClient, ocrClient
     };
     const analysisPath = path.join(storeDir, 'analysis', `${job.messageId}.json`);
     await writeJson(analysisPath, analysisRecord);
+
+    log.info('analysis_completed', {
+      messageId: job.messageId,
+      isSlipLike: analysis.isSlipLike,
+      amount: analysis.amount,
+      currency: analysis.currency,
+      referenceId: analysis.referenceId,
+      bankHint: analysis.bankHint,
+      hasQr: analysis.hasQr,
+      summary: analysisRecord.summary,
+      analysisPath
+    });
 
     const replyJob = {
       jobType: 'reply_message',
@@ -77,6 +120,12 @@ export async function processFetchJob(jobPath, { storeDir, lineClient, ocrClient
     const replyJobPath = path.join(storeDir, 'reply_jobs', `${job.messageId}.json`);
     await writeJson(replyJobPath, replyJob);
 
+    log.info('reply_job_created', {
+      messageId: job.messageId,
+      replyJobPath,
+      replyText: replyJob.message.text
+    });
+
     const updatedJob = {
       ...job,
       attempts: job.attempts || 0,
@@ -91,6 +140,10 @@ export async function processFetchJob(jobPath, { storeDir, lineClient, ocrClient
 
     return updatedJob;
   } catch (error) {
+    log.error('fetch_job_failed', {
+      messageId: job.messageId,
+      error: error.message
+    });
     await markJobFailure(jobPath, job, error);
     throw error;
   }

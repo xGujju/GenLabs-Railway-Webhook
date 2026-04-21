@@ -29,7 +29,7 @@ function createStubOcrClient() {
   };
 }
 
-test('processFetchJob fetches media, runs OCR analysis, and creates a reply job', async () => {
+async function setupFetchJobFixture() {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'genlabs-job-'));
   const jobsDir = path.join(tempDir, 'jobs');
   await fs.mkdir(jobsDir, { recursive: true });
@@ -50,6 +50,12 @@ test('processFetchJob fetches media, runs OCR analysis, and creates a reply job'
       2
     )
   );
+
+  return { tempDir, jobPath };
+}
+
+test('processFetchJob fetches media, runs OCR analysis, and creates a reply job', async () => {
+  const { tempDir, jobPath } = await setupFetchJobFixture();
 
   const result = await processFetchJob(jobPath, {
     storeDir: tempDir,
@@ -79,4 +85,28 @@ test('processFetchJob fetches media, runs OCR analysis, and creates a reply job'
   assert.equal(updatedJob.status, 'processed');
   assert.ok(updatedJob.mediaPath);
   assert.ok(updatedJob.analysisPath);
+});
+
+test('processFetchJob logs OCR and analysis details for debugging', async () => {
+  const { tempDir, jobPath } = await setupFetchJobFixture();
+  const logs = [];
+  const logger = {
+    info(event, payload) {
+      logs.push({ level: 'info', event, payload });
+    },
+    error(event, payload) {
+      logs.push({ level: 'error', event, payload });
+    }
+  };
+
+  await processFetchJob(jobPath, {
+    storeDir: tempDir,
+    lineClient: createStubLineClient(),
+    ocrClient: createStubOcrClient(),
+    logger
+  });
+
+  assert.ok(logs.some((entry) => entry.event === 'fetch_job_started' && entry.payload.messageId === 'msg-image-1'));
+  assert.ok(logs.some((entry) => entry.event === 'ocr_completed' && /SCB Transfer successful/.test(entry.payload.extractedTextPreview)));
+  assert.ok(logs.some((entry) => entry.event === 'analysis_completed' && entry.payload.summary.includes('Slip detected')));
 });

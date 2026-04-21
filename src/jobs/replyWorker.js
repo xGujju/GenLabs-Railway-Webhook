@@ -5,6 +5,13 @@ async function writeJson(filePath, data) {
   await fs.writeFile(filePath, `${JSON.stringify(data, null, 2)}\n`, 'utf8');
 }
 
+function getLogger(logger = console) {
+  return {
+    info: typeof logger.info === 'function' ? logger.info.bind(logger) : () => {},
+    error: typeof logger.error === 'function' ? logger.error.bind(logger) : () => {}
+  };
+}
+
 async function markReplyFailure(jobPath, job, error) {
   const attempts = (job.attempts || 0) + 1;
   const maxAttempts = job.maxAttempts || 3;
@@ -20,7 +27,8 @@ async function markReplyFailure(jobPath, job, error) {
   await writeJson(jobPath, updatedJob);
 }
 
-export async function processPendingReplyJobs({ storeDir, lineClient }) {
+export async function processPendingReplyJobs({ storeDir, lineClient, logger }) {
+  const log = getLogger(logger);
   const replyJobsDir = path.join(storeDir, 'reply_jobs');
 
   let files = [];
@@ -42,6 +50,12 @@ export async function processPendingReplyJobs({ storeDir, lineClient }) {
       continue;
     }
 
+    log.info('reply_job_started', {
+      replyToken: job.replyToken,
+      jobPath,
+      messageText: job.message?.text || null
+    });
+
     try {
       await lineClient.replyMessage({
         replyToken: job.replyToken,
@@ -57,7 +71,17 @@ export async function processPendingReplyJobs({ storeDir, lineClient }) {
       };
       await writeJson(jobPath, updatedJob);
       processedJobs.push(updatedJob);
+      log.info('reply_job_sent', {
+        replyToken: job.replyToken,
+        jobPath,
+        messageText: job.message?.text || null
+      });
     } catch (error) {
+      log.error('reply_job_failed', {
+        replyToken: job.replyToken,
+        jobPath,
+        error: error.message
+      });
       await markReplyFailure(jobPath, job, error);
       throw error;
     }
