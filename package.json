@@ -5,8 +5,8 @@
   "description": "LINE Messaging API webhook server",
   "main": "server.js",
   "scripts": {
-    "start": "node src/cli/webhook.js",
-    "dev": "node src/cli/webhook.js",
+    "start": "PORT=5000 node src/cli/webhook.js",
+    "dev": "PORT=5000 node src/cli/webhook.js",
     "start:all": "./run.sh",
     "worker:once": "node src/cli/worker-once.js",
     "worker:loop": "node src/cli/worker-loop.js",
