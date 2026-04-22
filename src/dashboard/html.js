@@ -70,6 +70,12 @@ export function createOwnerDashboardHtml({ token }) {
         align-items: center;
         justify-content: space-between;
       }
+      .toolbar-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+      }
       .pill {
         display: inline-flex;
         align-items: center;
@@ -93,6 +99,10 @@ export function createOwnerDashboardHtml({ token }) {
       }
       .card {
         padding: 16px;
+      }
+      .card.primary {
+        background: linear-gradient(180deg, #fff6eb 0%, #fff 100%);
+        border-color: #e7c9a7;
       }
       .card-label {
         color: var(--muted);
@@ -139,6 +149,13 @@ export function createOwnerDashboardHtml({ token }) {
         background: #fff;
         display: grid;
         gap: 8px;
+        cursor: pointer;
+        transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+      }
+      .payment:hover {
+        transform: translateY(-1px);
+        border-color: #ddc5aa;
+        box-shadow: 0 12px 24px rgba(48, 37, 24, 0.08);
       }
       .payment-top {
         display: flex;
@@ -146,9 +163,33 @@ export function createOwnerDashboardHtml({ token }) {
         gap: 12px;
         align-items: start;
       }
+      .payment-main {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        min-width: 0;
+      }
+      .payment-thumb {
+        width: 52px;
+        height: 52px;
+        border-radius: 14px;
+        object-fit: cover;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        flex: 0 0 52px;
+      }
+      .payment-copy {
+        min-width: 0;
+      }
       .payment-amount {
         font-size: 22px;
         font-weight: 700;
+      }
+      .payment-arrow {
+        color: var(--accent);
+        font-size: 18px;
+        font-weight: 700;
+        align-self: center;
       }
       .meta {
         display: flex;
@@ -175,6 +216,15 @@ export function createOwnerDashboardHtml({ token }) {
       button.secondary {
         background: var(--surface-2);
         color: var(--text);
+      }
+      .empty-state {
+        padding: 18px;
+        border-radius: 16px;
+        border: 1px dashed var(--line);
+        color: var(--muted);
+        background: #fffdfa;
+        font-size: 13px;
+        line-height: 1.5;
       }
       dialog {
         width: min(92vw, 760px);
@@ -222,12 +272,15 @@ export function createOwnerDashboardHtml({ token }) {
   <body>
     <main class="app">
       <section class="hero">
-        <div class="eyebrow">Claude-inspired owner view</div>
+        <div class="eyebrow">Private owner view</div>
         <h1>Owner Revenue Dashboard</h1>
-        <div class="sub">Mobile-first revenue visibility for detected LINE slip payments. Warm neutral palette, low-noise hierarchy, and real-time refresh.</div>
+        <div class="sub">Track detected LINE slip revenue at a glance.</div>
         <div class="toolbar">
-          <div class="pill" id="generatedAt">Refreshing…</div>
-          <button id="refreshButton" class="secondary">Refresh</button>
+          <div class="toolbar-group">
+            <div class="pill" id="generatedAt">Refreshing…</div>
+            <div class="pill">Auto refresh 30s</div>
+          </div>
+          <button id="refreshButton" class="secondary">Refresh now</button>
         </div>
       </section>
 
@@ -237,7 +290,7 @@ export function createOwnerDashboardHtml({ token }) {
         <section class="grid-2">
           <div class="panel">
             <h2>Revenue today</h2>
-            <p>Default view starts with today’s live revenue trend. Switches are intentionally minimal.</p>
+            <p>Live detected revenue since midnight.</p>
             <div class="chart-wrap"><svg id="revenueChart" viewBox="0 0 640 260" aria-label="Revenue chart"></svg></div>
           </div>
 
@@ -250,7 +303,7 @@ export function createOwnerDashboardHtml({ token }) {
 
         <section class="panel">
           <h2>Recent payments</h2>
-          <p>Top 10 on first load. Tap any payment for full detail with image and OCR output.</p>
+          <p>Top 10 on first load. Tap the row for full detail with image and OCR output.</p>
           <div class="list" id="recentPayments"></div>
           <div style="margin-top:12px"><button id="loadMoreButton" class="secondary">Load more</button></div>
         </section>
@@ -299,7 +352,7 @@ export function createOwnerDashboardHtml({ token }) {
 
       function renderMetrics(metrics) {
         metricCards.innerHTML = [
-          metricCard('Revenue today', formatMoney(metrics.revenueToday) + ' THB'),
+          '<article class="card primary"><div class="card-label">Revenue today</div><div class="card-value">' + formatMoney(metrics.revenueToday) + ' THB</div></article>',
           metricCard('Revenue this week', formatMoney(metrics.revenueWeek) + ' THB'),
           metricCard('Revenue this month', formatMoney(metrics.revenueMonth) + ' THB'),
           metricCard('Revenue all-time', formatMoney(metrics.revenueAllTime) + ' THB')
@@ -308,7 +361,7 @@ export function createOwnerDashboardHtml({ token }) {
 
       function renderChart(series) {
         if (!series.length) {
-          revenueChart.innerHTML = '<text x="20" y="36" fill="#6b6257" font-size="14">No revenue yet for today.</text>';
+          revenueChart.innerHTML = '<text x="20" y="36" fill="#6b6257" font-size="14">No payments detected since midnight.</text><text x="20" y="58" fill="#8a7d6d" font-size="12">Week and month cards still include detected revenue outside today.</text>';
           return;
         }
         const values = series.map(function (point) { return point.value; });
@@ -358,14 +411,18 @@ export function createOwnerDashboardHtml({ token }) {
       function renderRecentPayments() {
         const visible = state.ledger.slice(0, state.visibleCount);
         recentPayments.innerHTML = visible.map(function (entry) {
-          const refTag = entry.referenceId ? '<span class="tag">Ref ' + entry.referenceId + '</span>' : '';
+          const refTag = entry.referenceId ? '<span class="tag">Ref ' + entry.referenceId.slice(0, 8) + '…</span>' : '';
+          const thumb = entry.imageUrl ? '<img class="payment-thumb" src="' + entry.imageUrl + '" alt="Slip thumbnail" />' : '<div class="payment-thumb"></div>';
           return '<article class="payment" data-message-id="' + entry.messageId + '">' +
             '<div class="payment-top">' +
-              '<div>' +
-                '<div class="payment-amount">' + formatMoney(entry.amount) + ' THB</div>' +
-                '<div class="sub">' + entry.dateTime + '</div>' +
+              '<div class="payment-main">' +
+                thumb +
+                '<div class="payment-copy">' +
+                  '<div class="payment-amount">' + formatMoney(entry.amount) + ' THB</div>' +
+                  '<div class="sub">' + entry.dateTime + '</div>' +
+                '</div>' +
               '</div>' +
-              '<button class="secondary" data-open-detail="' + entry.messageId + '">View</button>' +
+              '<div class="payment-arrow">→</div>' +
             '</div>' +
             '<div class="meta">' +
               '<span class="tag">' + entry.bank + '</span>' +
@@ -373,7 +430,7 @@ export function createOwnerDashboardHtml({ token }) {
               refTag +
             '</div>' +
           '</article>';
-        }).join('') || '<div class="payment">No detected payments yet.</div>';
+        }).join('') || '<div class="empty-state">No detected payments yet. Once slips are detected, revenue and recent payment cards will appear here automatically.</div>';
         loadMoreButton.hidden = state.visibleCount >= state.ledger.length;
       }
 
@@ -407,11 +464,12 @@ export function createOwnerDashboardHtml({ token }) {
         renderChart(snapshot.charts.hourlyToday);
         renderBankBreakdown(snapshot.bankBreakdown);
         renderRecentPayments();
-        generatedAt.textContent = 'Updated ' + new Date(snapshot.generatedAt).toLocaleString();
+        generatedAt.textContent = 'Updated ' + new Date(snapshot.generatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
       }
 
       recentPayments.addEventListener('click', function (event) {
-        const messageId = event.target.getAttribute('data-open-detail');
+        const card = event.target.closest('[data-message-id]');
+        const messageId = card && card.getAttribute('data-message-id');
         if (!messageId) return;
         const entry = state.ledger.find(function (item) { return item.messageId === messageId; });
         if (entry) openDetail(entry);

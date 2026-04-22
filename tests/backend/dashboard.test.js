@@ -46,7 +46,7 @@ test('owner dashboard routes require the derived private token and return ledger
   const page = await request(app).get(`/owner/${token}`);
   assert.equal(page.status, 200);
   assert.match(page.text, /Owner Revenue Dashboard/);
-  assert.match(page.text, /claude/i);
+  assert.match(page.text, /Private owner view/i);
 
   const data = await request(app).get(`/owner/${token}/data`);
   assert.equal(data.status, 200);

@@ -1,4 +1,5 @@
 import express from 'express';
+import path from 'node:path';
 
 import { createDashboardToken } from './dashboard/auth.js';
 import { createOwnerDashboardHtml } from './dashboard/html.js';
@@ -53,7 +54,8 @@ export function createApp({ channelSecret, channelAccessToken, storeDir }) {
       return res.status(404).send('Not Found');
     }
 
-    const mediaPath = new URL(`./${req.params.fileName}`, `file://${storeDir.replace(/\/$/, '')}/media/`).pathname;
+    const safeFileName = path.basename(req.params.fileName);
+    const mediaPath = path.resolve(storeDir, 'media', safeFileName);
     return res.sendFile(mediaPath);
   });
 
